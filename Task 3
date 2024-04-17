@@ -1,0 +1,95 @@
+package com.example.weatherapp;
+
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.TextView;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+public class MainActivity extends AppCompatActivity {
+
+    private EditText locationInput;
+    private TextView weatherInfo;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        locationInput = findViewById(R.id.locationInput);
+        weatherInfo = findViewById(R.id.weatherInfo);
+    }
+
+    public void getWeatherInfo(View view) {
+        String location = locationInput.getText().toString();
+        new GetWeatherTask().execute(location);
+    }
+
+    private class GetWeatherTask extends AsyncTask<String, Void, String> {
+
+        private static final String API_KEY = "your_api_key_here";
+        private static final String API_URL = "http://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s&units=metric";
+
+        @Override
+        protected String doInBackground(String... params) {
+            String location = params[0];
+            String apiUrl = String.format(API_URL, location, API_KEY);
+
+            try {
+                URL url = new URL(apiUrl);
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+
+                int responseCode = connection.getResponseCode();
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                    StringBuilder response = new StringBuilder();
+                    String line;
+
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+
+                    return response.toString();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(String response) {
+            if (response != null) {
+                try {
+                    JSONObject json = new JSONObject(response);
+                    String temperature = json.getJSONObject("main").getString("temp") + "°C";
+                    String description = json.getJSONArray("weather").getJSONObject(0).getString("description");
+                    String windSpeed = json.getJSONObject("wind").getString("speed") + " m/s";
+
+                    String weatherDetails = "Temperature: " + temperature + "\n"
+                            + "Description: " + description + "\n"
+                            + "Wind Speed: " + windSpeed;
+
+                    weatherInfo.setText(weatherDetails);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                weatherInfo.setText("Error: Unable to fetch weather information");
+            }
+        }
+    }
+}
